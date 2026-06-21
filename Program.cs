@@ -28,27 +28,33 @@ var app = builder.Build();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapGet("/health", () => "OK").WithName("Health");
+app.MapGet("/health", () => "OK");
 
-app.MapPost("/api/auth/register", (HttpRequest req) =>
+app.MapPost("/api/auth/register", async (HttpContext context) =>
 {
-    var username = req.Query["username"].ToString();
-    var password = req.Query["password"].ToString();
+    var form = await context.Request.ReadFormAsync();
+    var username = form["username"].ToString();
+    var password = form["password"].ToString();
+    
     if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
         return Results.BadRequest(new { error = "username and password required" });
+    
     var token = GenerateJwtToken(username, jwtKey);
     return Results.Ok(new { token, username });
-}).WithName("Register");
+});
 
-app.MapPost("/api/auth/login", (HttpRequest req) =>
+app.MapPost("/api/auth/login", async (HttpContext context) =>
 {
-    var username = req.Query["username"].ToString();
-    var password = req.Query["password"].ToString();
+    var form = await context.Request.ReadFormAsync();
+    var username = form["username"].ToString();
+    var password = form["password"].ToString();
+    
     if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
         return Results.BadRequest(new { error = "username and password required" });
+    
     var token = GenerateJwtToken(username, jwtKey);
     return Results.Ok(new { token, username });
-}).WithName("Login");
+});
 
 app.Run("http://0.0.0.0:" + (Environment.GetEnvironmentVariable("PORT") ?? "8080"));
 
