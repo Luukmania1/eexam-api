@@ -9,6 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 var jwtKey = "super_secret_key_12345_change_later";
 var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
 
+builder.Services.AddRouting(); // <-- This fixes Railway 404
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(o => o.TokenValidationParameters = new TokenValidationParameters
     {
@@ -22,30 +23,31 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 var app = builder.Build();
 
+app.UseRouting(); // <-- Must be before auth
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapGet("/health", () => Results.Text("OK"));
+app.MapGet("/health", () => "OK");
 
-app.MapMethods("/api/auth/register", new[] { "POST" }, async (HttpContext ctx) =>
+app.MapPost("/api/auth/register", async (HttpContext ctx) =>
 {
     var form = await ctx.Request.ReadFormAsync();
     var username = form["username"].ToString();
     var password = form["password"].ToString();
     if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
-        return Results.Json(new { error = "username and password required" }, statusCode: 400);
+        return Results.BadRequest(new { error = "username and password required" });
     
     var token = GenerateToken(username, jwtKey);
     return Results.Json(new { token, username });
 });
 
-app.MapMethods("/api/auth/login", new[] { "POST" }, async (HttpContext ctx) =>
+app.MapPost("/api/auth/login", async (HttpContext ctx) =>
 {
     var form = await ctx.Request.ReadFormAsync();
     var username = form["username"].ToString();
     var password = form["password"].ToString();
     if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
-        return Results.Json(new { error = "username and password required" }, statusCode: 400);
+        return Results.BadRequest(new { error = "username and password required" });
     
     var token = GenerateToken(username, jwtKey);
     return Results.Json(new { token, username });
