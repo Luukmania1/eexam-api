@@ -34,12 +34,8 @@ app.MapPost("/api/auth/register", (HttpRequest req) =>
 {
     var username = req.Query["username"].ToString();
     var password = req.Query["password"].ToString();
-    
     if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
-    {
         return Results.BadRequest(new { error = "username and password required" });
-    }
-    
     var token = GenerateJwtToken(username, jwtKey);
     return Results.Ok(new { token, username });
 });
@@ -48,17 +44,13 @@ app.MapPost("/api/auth/login", (HttpRequest req) =>
 {
     var username = req.Query["username"].ToString();
     var password = req.Query["password"].ToString();
-    
     if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
-    {
         return Results.BadRequest(new { error = "username and password required" });
-    }
-    
     var token = GenerateJwtToken(username, jwtKey);
     return Results.Ok(new { token, username });
 });
 
-app.Run();
+app.Run("http://0.0.0.0:" + (Environment.GetEnvironmentVariable("PORT") ?? "8080"));
 
 string GenerateJwtToken(string username, string jwtKey)
 {
