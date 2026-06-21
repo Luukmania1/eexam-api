@@ -1,11 +1,16 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services for JWT Auth
+// JWT Secret - same as Railway env variable
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "this_is_a_super_secret_key_change_this_in_production_12345";
+var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+
+// Add JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -13,51 +18,48 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         {
             ValidateIssuer = false,
             ValidateAudience = false,
+            ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes("YourSuperSecretKey123!"))
+            IssuerSigningKey = key
         };
     });
 
 builder.Services.AddAuthorization();
-
 var app = builder.Build();
 
-// Add these 2 lines for JWT to work
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapGet("/", () => "API is running on Railway!");
-
+// Health check - GET works in browser
 app.MapGet("/health", () => "OK");
 
-// Test endpoints for JWT
-app.MapPost("/api/auth/register", (string username, string password) =>
+// Register endpoint - reads from query params
+app.MapPost("/api/auth/register", (HttpRequest req) =>
 {
-    var token = GenerateJwtToken(username);
+    var username = req.Query["username"].ToString();
+    var password = req.Query["password"].ToString();
+    
+    if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+        return Results.BadRequest(new { error = "username and password required" });
+    
+    var token = GenerateJwtToken(username, jwtKey);
     return Results.Ok(new { token, username });
 });
 
-app.MapPost("/api/auth/login", (string username, string password) =>
+// Login endpoint - reads from query params  
+app.MapPost("/api/auth/login", (HttpRequest req) =>
 {
-    var token = GenerateJwtToken(username);
+    var username = req.Query["username"].ToString();
+    var password = req.Query["password"].ToString();
+    
+    if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+        return Results.BadRequest(new { error = "username and password required" });
+    
+    var token = GenerateJwtToken(username, jwtKey);
     return Results.Ok(new { token, username });
 });
 
-// Helper function to create JWT token
-string GenerateJwtToken(string username)
-{
-    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("YourSuperSecretKey123!"));
-    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-    
-    var token = new JwtSecurityToken(
-        claims: new[] { new System.Security.Claims.Claim("username", username) },
-        expires: DateTime.Now.AddDays(7),
-        signingCredentials: creds);
-    
-    return new JwtSecurityTokenHandler().WriteToken(token);
-}
+app.Run();
 
-// Use Railway's PORT variable so it doesn't crash
-var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-app.Run($"http://0.0.0.0:{port}");
+// JWT Token generator function
+string GenerateJwtToken(string username,
