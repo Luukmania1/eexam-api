@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.IdentityModel.Tokens.Jwt;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,7 +31,7 @@ app.MapGet("/", () => "API is running on Railway!");
 
 app.MapGet("/health", () => "OK");
 
-// Temporary test endpoints for JWT
+// Test endpoints for JWT
 app.MapPost("/api/auth/register", (string username, string password) =>
 {
     var token = GenerateJwtToken(username);
@@ -44,14 +45,4 @@ app.MapPost("/api/auth/login", (string username, string password) =>
 });
 
 // Helper function to create JWT token
-string GenerateJwtToken(string username)
-{
-    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("YourSuperSecretKey123!"));
-    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-    
-    var token = new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(
-        claims: new[] { new System.Security.Claims.Claim("username", username) },
-        expires: DateTime.Now.AddDays(7),
-        signingCredentials: creds);
-    
-    return new System.IdentityModel.Tokens.Jwt.Jwt
+string GenerateJwt
