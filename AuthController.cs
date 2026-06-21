@@ -1,0 +1,1 @@
+curl -k -X POST "https://eexam-api-production-8c72.u.p.railway.app/api/auth/register" -d "username=demo&password=123456"
