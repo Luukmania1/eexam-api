@@ -6,7 +6,7 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "this_is_a_super_secret_key_change_this_in_production_12345";
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "super_secret_key_12345_change_in_prod";
 var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -28,7 +28,7 @@ var app = builder.Build();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapGet("/health", () => "OK");
+app.MapGet("/health", () => "OK").WithName("Health");
 
 app.MapPost("/api/auth/register", (HttpRequest req) =>
 {
@@ -38,7 +38,7 @@ app.MapPost("/api/auth/register", (HttpRequest req) =>
         return Results.BadRequest(new { error = "username and password required" });
     var token = GenerateJwtToken(username, jwtKey);
     return Results.Ok(new { token, username });
-});
+}).WithName("Register");
 
 app.MapPost("/api/auth/login", (HttpRequest req) =>
 {
@@ -48,7 +48,7 @@ app.MapPost("/api/auth/login", (HttpRequest req) =>
         return Results.BadRequest(new { error = "username and password required" });
     var token = GenerateJwtToken(username, jwtKey);
     return Results.Ok(new { token, username });
-});
+}).WithName("Login");
 
 app.Run("http://0.0.0.0:" + (Environment.GetEnvironmentVariable("PORT") ?? "8080"));
 
@@ -58,7 +58,7 @@ string GenerateJwtToken(string username, string jwtKey)
     var key = Encoding.UTF8.GetBytes(jwtKey);
     var tokenDescriptor = new SecurityTokenDescriptor
     {
-        Subject = new ClaimsIdentity(new[] { new Claim("username", username) }),
+        Subject = new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, username) }),
         Expires = DateTime.UtcNow.AddHours(24),
         SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
     };
