@@ -10,7 +10,7 @@ var jwtKey = "super_secret_key_12345_change_later";
 var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options => options.TokenValidationParameters = new TokenValidationParameters
+    .AddJwtBearer(o => o.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = false,
         ValidateAudience = false,
@@ -25,17 +25,30 @@ var app = builder.Build();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapGet("/health", () => "OK");
+app.MapGet("/health", () => Results.Text("OK"));
 
-app.MapPost("/api/auth/register", async (HttpContext ctx) =>
+app.MapMethods("/api/auth/register", new[] { "POST" }, async (HttpContext ctx) =>
 {
     var form = await ctx.Request.ReadFormAsync();
     var username = form["username"].ToString();
     var password = form["password"].ToString();
-    if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
-        return Results.BadRequest(new { error = "username and password required" });
+    if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+        return Results.Json(new { error = "username and password required" }, statusCode: 400);
+    
     var token = GenerateToken(username, jwtKey);
-    return Results.Ok(new { token, username });
+    return Results.Json(new { token, username });
+});
+
+app.MapMethods("/api/auth/login", new[] { "POST" }, async (HttpContext ctx) =>
+{
+    var form = await ctx.Request.ReadFormAsync();
+    var username = form["username"].ToString();
+    var password = form["password"].ToString();
+    if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+        return Results.Json(new { error = "username and password required" }, statusCode: 400);
+    
+    var token = GenerateToken(username, jwtKey);
+    return Results.Json(new { token, username });
 });
 
 app.Run("http://0.0.0.0:" + (Environment.GetEnvironmentVariable("PORT") ?? "8080"));
