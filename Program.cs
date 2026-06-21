@@ -6,11 +6,9 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// JWT Secret - same as Railway env variable
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "this_is_a_super_secret_key_change_this_in_production_12345";
 var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
 
-// Add JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -30,30 +28,31 @@ var app = builder.Build();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Health check - GET works in browser
 app.MapGet("/health", () => "OK");
 
-// Register endpoint - reads from query params
 app.MapPost("/api/auth/register", (HttpRequest req) =>
 {
     var username = req.Query["username"].ToString();
     var password = req.Query["password"].ToString();
     
     if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+    {
         return Results.BadRequest(new { error = "username and password required" });
+    }
     
     var token = GenerateJwtToken(username, jwtKey);
     return Results.Ok(new { token, username });
 });
 
-// Login endpoint - reads from query params  
 app.MapPost("/api/auth/login", (HttpRequest req) =>
 {
     var username = req.Query["username"].ToString();
     var password = req.Query["password"].ToString();
     
     if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+    {
         return Results.BadRequest(new { error = "username and password required" });
+    }
     
     var token = GenerateJwtToken(username, jwtKey);
     return Results.Ok(new { token, username });
@@ -61,5 +60,16 @@ app.MapPost("/api/auth/login", (HttpRequest req) =>
 
 app.Run();
 
-// JWT Token generator function
-string GenerateJwtToken(string username,
+string GenerateJwtToken(string username, string jwtKey)
+{
+    var tokenHandler = new JwtSecurityTokenHandler();
+    var key = Encoding.UTF8.GetBytes(jwtKey);
+    var tokenDescriptor = new SecurityTokenDescriptor
+    {
+        Subject = new ClaimsIdentity(new[] { new Claim("username", username) }),
+        Expires = DateTime.UtcNow.AddHours(24),
+        SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+    };
+    var token = tokenHandler.CreateToken(tokenDescriptor);
+    return tokenHandler.WriteToken(token);
+}
